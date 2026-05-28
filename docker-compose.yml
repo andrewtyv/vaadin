@@ -23,7 +23,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vaadin_users
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_PASSWORD: 123qweasdzxc
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
     ports:
       - "8080:8080"

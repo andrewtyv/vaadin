@@ -1,21 +1,27 @@
+
 package me.andrew.vaadin_users.ui
 
-import com.vaadin.flow.component.UI
-import com.vaadin.flow.component.button.Button
+import com.github.mvysny.karibudsl.v10.button
+import com.github.mvysny.karibudsl.v10.comboBox
+import com.github.mvysny.karibudsl.v10.emailField
+import com.github.mvysny.karibudsl.v10.grid
+import com.github.mvysny.karibudsl.v10.h1
+import com.github.mvysny.karibudsl.v10.h2
+import com.github.mvysny.karibudsl.v10.horizontalLayout
+import com.github.mvysny.karibudsl.v10.onLeftClick
+import com.github.mvysny.karibudsl.v10.p
+import com.github.mvysny.karibudsl.v10.passwordField
+import com.github.mvysny.karibudsl.v10.textField
+import com.github.mvysny.karibudsl.v10.verticalLayout
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.ComboBox
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog
 import com.vaadin.flow.component.dialog.Dialog
 import com.vaadin.flow.component.grid.Grid
-import com.vaadin.flow.component.html.H1
-import com.vaadin.flow.component.html.H2
 import com.vaadin.flow.component.html.Paragraph
 import com.vaadin.flow.component.notification.Notification
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
-import com.vaadin.flow.component.textfield.EmailField
-import com.vaadin.flow.component.textfield.PasswordField
 import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.data.value.ValueChangeMode
 import com.vaadin.flow.router.PageTitle
@@ -28,6 +34,7 @@ import me.andrew.vaadin_users.service.UserSearchType
 import me.andrew.vaadin_users.service.UserService
 import org.springframework.data.domain.Sort
 import org.springframework.security.core.context.SecurityContextHolder
+import com.vaadin.flow.component.button.Button
 
 @Route("")
 @PageTitle("Dashboard")
@@ -35,30 +42,25 @@ import org.springframework.security.core.context.SecurityContextHolder
 class DashboardView(
     private val userService: UserService,
     private val authenticationContext: AuthenticationContext
-
 ) : VerticalLayout() {
 
-    private val grid = Grid(AppUser::class.java, false)
 
-    private val searchField = TextField("Search")
-    private val pageSizeCombo = ComboBox<Int>("Page size")
-    private val sortByCombo = ComboBox<String>("Sort by")
-    private val sortDirectionButton = Button("ASC")
+    private lateinit var grid: Grid<AppUser>
+    private lateinit var searchField: TextField
+    private lateinit var searchTypeCombo: ComboBox<String>
+    private lateinit var sortByCombo: ComboBox<String>
+    private lateinit var pageInfo: Paragraph
 
-    private val createButton = Button("Create user")
-    private val editButton = Button("Edit selected")
-    private val deleteButton = Button("Delete selected")
-
-    private val previousButton = Button("Previous")
-    private val nextButton = Button("Next")
-    private val pageInfo = Paragraph()
+    private lateinit var createButton: com.vaadin.flow.component.button.Button
+    private lateinit var editButton: com.vaadin.flow.component.button.Button
+    private lateinit var deleteButton: com.vaadin.flow.component.button.Button
+    private lateinit var previousButton: com.vaadin.flow.component.button.Button
+    private lateinit var nextButton: com.vaadin.flow.component.button.Button
 
     private var currentPage = 0
     private var pageSize = 25
     private var sortDirection = Sort.Direction.ASC
     private var selectedUser: AppUser? = null
-
-    private val searchTypeCombo = ComboBox<String>("Search by")
 
     private val sortOptions = linkedMapOf(
         "Username" to "username",
@@ -76,192 +78,149 @@ class DashboardView(
             ?: throw IllegalStateException("Authentication is missing")
 
         val username = authentication.name ?: "unknown"
-        val authorities = authentication.authorities.mapNotNull { it.authority }
-        val isAdmin = authorities.contains("ROLE_ADMIN")
+        val isAdmin = authentication.authorities.any { it.authority == "ROLE_ADMIN" }
 
-        val title = H1("User Dashboard")
-        val loggedInInfo = Paragraph("Logged in as: $username")
-        val roleInfo = Paragraph("Role: ${if (isAdmin) "ADMIN" else "USER"}")
 
-        val logoutButton = Button("Logout") {
-            authenticationContext.logout()
+        h1("User Dashboard")
+        p("Logged in as: $username")
+        p("Role: ${if (isAdmin) "ADMIN" else "USER"}")
+
+
+        horizontalLayout {
+            isSpacing = true
+            button("Logout") {
+                addThemeVariants(ButtonVariant.LUMO_ERROR)
+                onLeftClick { authenticationContext.logout() }
+            }
         }
-        logoutButton.addThemeVariants(ButtonVariant.LUMO_ERROR)
 
-        configureSearch()
-        configureSorting()
-        configurePagination()
-        configureGrid()
-        configureAdminButtons()
+        h2("Users")
 
-        val topBar = HorizontalLayout(logoutButton)
-        topBar.isSpacing = true
+        horizontalLayout {
+            setWidthFull()
+            isSpacing = true
 
-        val controls = HorizontalLayout(
-            searchField,
-            searchTypeCombo,
-            sortByCombo,
-            sortDirectionButton,
-            pageSizeCombo
-        )
-        controls.setWidthFull()
-        controls.isSpacing = true
-        controls.setFlexGrow(1.0, searchField)
+            searchField = textField("Search") {
+                placeholder = "Search"
+                valueChangeMode = ValueChangeMode.LAZY
+                isClearButtonVisible = true
+                setWidthFull()
+                addValueChangeListener {
+                    currentPage = 0
+                    refreshGrid()
+                }
+            }
 
-        val paginationBar = HorizontalLayout(
-            previousButton,
-            nextButton,
-            pageInfo
-        )
-        paginationBar.isSpacing = true
-        paginationBar.defaultVerticalComponentAlignment = Alignment.CENTER
+            searchTypeCombo = comboBox("Search by") {
+                setItems("Username", "Email")
+                value = "Username"
+                isAllowCustomValue = false
+                addValueChangeListener {
+                    currentPage = 0
+                    refreshGrid()
+                }
+            }
 
-        add(
-            title,
-            loggedInInfo,
-            roleInfo,
-            topBar,
-            H2("Users"),
-            controls
-        )
+            sortByCombo = comboBox("Sort by") {
+                setItems(sortOptions.keys)
+                value = "Username"
+                isAllowCustomValue = false
+                addValueChangeListener {
+                    currentPage = 0
+                    refreshGrid()
+                }
+            }
 
+            button("ASC") {
+                onLeftClick {
+                    sortDirection = if (sortDirection == Sort.Direction.ASC)
+                        Sort.Direction.DESC else Sort.Direction.ASC
+                    text = sortDirection.name
+                    currentPage = 0
+                    refreshGrid()
+                }
+            }
+
+            comboBox<Int>("Page size") {
+                setItems(listOf(10, 25, 50, 100))
+                value = pageSize
+                isAllowCustomValue = false
+                addValueChangeListener { event ->
+                    pageSize = event.value ?: return@addValueChangeListener
+                    currentPage = 0
+                    refreshGrid()
+                }
+            }
+        }
         if (isAdmin) {
-            val adminActions = HorizontalLayout(
-                createButton,
-                editButton,
-                deleteButton
-            )
-            adminActions.isSpacing = true
-            add(adminActions)
+            horizontalLayout {
+                isSpacing = true
+                createButton = button("Create user") {
+                    addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+                    onLeftClick { openUserDialog(null) }
+                }
+                editButton = button("Edit selected") {
+                    isEnabled = false
+                    onLeftClick {
+                        val user = selectedUser ?: return@onLeftClick
+                        openUserDialog(user)
+                    }
+                }
+                deleteButton = button("Delete selected") {
+                    isEnabled = false
+                    addThemeVariants(ButtonVariant.LUMO_ERROR)
+                    onLeftClick {
+                        val user = selectedUser ?: return@onLeftClick
+                        openDeleteDialog(user)
+                    }
+                }
+            }
+        } else {
+            createButton = com.vaadin.flow.component.button.Button()
+            editButton = com.vaadin.flow.component.button.Button()
+            deleteButton = com.vaadin.flow.component.button.Button()
         }
 
-        add(grid, paginationBar)
+
+        grid = grid<AppUser> {
+            setSizeFull()
+            addColumn { it.username }.setHeader("Username").setAutoWidth(true)
+            addColumn { it.email }.setHeader("Email").setAutoWidth(true)
+            addColumn { it.role }.setHeader("Role").setAutoWidth(true)
+            addColumn { it.createdAt }.setHeader("Created At").setAutoWidth(true)
+            addColumn { it.updatedAt }.setHeader("Updated At").setAutoWidth(true)
+
+            asSingleSelect().addValueChangeListener { event ->
+                selectedUser = event.value
+                val hasSelection = selectedUser != null
+                editButton.isEnabled = hasSelection
+                deleteButton.isEnabled = hasSelection
+            }
+        }
         expand(grid)
 
+        horizontalLayout {
+            isSpacing = true
+            defaultVerticalComponentAlignment = Alignment.CENTER
+
+            previousButton = button("Previous") {
+                onLeftClick {
+                    if (currentPage > 0) {
+                        currentPage--
+                        refreshGrid()
+                    }
+                }
+            }
+            nextButton = button("Next") {
+                onLeftClick {
+                    currentPage++
+                    refreshGrid()
+                }
+            }
+            pageInfo = p()
+        }
+
         refreshGrid()
-    }
-
-    private fun configureSearch() {
-        searchField.placeholder = "Search"
-        searchField.valueChangeMode = ValueChangeMode.LAZY
-        searchField.isClearButtonVisible = true
-        searchField.setWidthFull()
-
-        searchTypeCombo.setItems("Username", "Email")
-        searchTypeCombo.value = "Username"
-        searchTypeCombo.isAllowCustomValue = false
-
-        searchTypeCombo.addValueChangeListener {
-            currentPage = 0
-            refreshGrid()
-        }
-
-        searchField.addValueChangeListener {
-            currentPage = 0
-            refreshGrid()
-        }
-    }
-
-    private fun configureSorting() {
-        sortByCombo.setItems(sortOptions.keys)
-        sortByCombo.value = "Username"
-        sortByCombo.isAllowCustomValue = false
-
-        sortByCombo.addValueChangeListener {
-            currentPage = 0
-            refreshGrid()
-        }
-
-        sortDirectionButton.addClickListener {
-            sortDirection = if (sortDirection == Sort.Direction.ASC) {
-                Sort.Direction.DESC
-            } else {
-                Sort.Direction.ASC
-            }
-
-            sortDirectionButton.text = sortDirection.name
-            currentPage = 0
-            refreshGrid()
-        }
-    }
-
-    private fun configurePagination() {
-        pageSizeCombo.setItems(listOf(10, 25, 50, 100))
-        pageSizeCombo.value = pageSize
-        pageSizeCombo.isAllowCustomValue = false
-
-        pageSizeCombo.addValueChangeListener { event ->
-            val selectedSize = event.value ?: return@addValueChangeListener
-            pageSize = selectedSize
-            currentPage = 0
-            refreshGrid()
-        }
-
-        previousButton.addClickListener {
-            if (currentPage > 0) {
-                currentPage--
-                refreshGrid()
-            }
-        }
-
-        nextButton.addClickListener {
-            currentPage++
-            refreshGrid()
-        }
-    }
-
-    private fun configureGrid() {
-        grid.setSizeFull()
-
-        grid.addColumn { it.username }
-            .setHeader("Username")
-            .setAutoWidth(true)
-
-        grid.addColumn { it.email }
-            .setHeader("Email")
-            .setAutoWidth(true)
-
-        grid.addColumn { it.role }
-            .setHeader("Role")
-            .setAutoWidth(true)
-
-        grid.addColumn { it.createdAt }
-            .setHeader("Created At")
-            .setAutoWidth(true)
-
-        grid.addColumn { it.updatedAt }
-            .setHeader("Updated At")
-            .setAutoWidth(true)
-
-        grid.asSingleSelect().addValueChangeListener { event ->
-            selectedUser = event.value
-            val hasSelection = selectedUser != null
-
-            editButton.isEnabled = hasSelection
-            deleteButton.isEnabled = hasSelection
-        }
-    }
-
-    private fun configureAdminButtons() {
-        createButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-
-        editButton.isEnabled = false
-        deleteButton.isEnabled = false
-        deleteButton.addThemeVariants(ButtonVariant.LUMO_ERROR)
-
-        createButton.addClickListener {
-            openUserDialog(null)
-        }
-
-        editButton.addClickListener {
-            val user = selectedUser ?: return@addClickListener
-            openUserDialog(user)
-        }
-
-        deleteButton.addClickListener {
-            val user = selectedUser ?: return@addClickListener
-            openDeleteDialog(user)
-        }
     }
 
     private fun openUserDialog(user: AppUser?) {
@@ -270,110 +229,110 @@ class DashboardView(
         val dialog = Dialog()
         dialog.headerTitle = if (isCreate) "Create user" else "Edit user"
 
-        val usernameField = TextField("Username")
-        usernameField.setWidthFull()
-        usernameField.value = user?.username ?: ""
+        lateinit var errorParagraph: Paragraph
 
-        val emailField = EmailField("Email")
-        emailField.setWidthFull()
-        emailField.value = user?.email ?: ""
+        val form = verticalLayout {
+            isPadding = false
+            isSpacing = true
+            setWidth("400px")
 
-        val passwordField = PasswordField(
-            if (isCreate) "Password" else "New password (optional)"
-        )
-        passwordField.setWidthFull()
-
-        val roleCombo = ComboBox<Role>("Role")
-        roleCombo.setItems(Role.entries.toList())
-        roleCombo.value = user?.role ?: Role.USER
-        roleCombo.setWidthFull()
-
-        val errorText = Paragraph()
-        errorText.style.set("color", "var(--lumo-error-text-color)")
-
-        val form = VerticalLayout(
-            usernameField,
-            emailField,
-            passwordField,
-            roleCombo,
-            errorText
-        )
-        form.setPadding(false)
-        form.setSpacing(true)
-        form.setWidth("400px")
-
-        val saveButton = Button(if (isCreate) "Create" else "Save") {
-            try {
-                val selectedRole = roleCombo.value
-                    ?: throw IllegalArgumentException("Role is required")
-
-                if (isCreate) {
-                    userService.createUser(
-                        username = usernameField.value ?: "",
-                        email = emailField.value ?: "",
-                        rawPassword = passwordField.value ?: "",
-                        role = selectedRole
-                    )
-                    Notification.show("User created")
-                } else {
-                    val userId = user?.id
-                        ?: throw IllegalArgumentException("User id is missing")
-
-                    userService.updateUser(
-                        id = userId,
-                        username = usernameField.value ?: "",
-                        email = emailField.value ?: "",
-                        rawPassword = passwordField.value ?: "",
-                        role = selectedRole
-                    )
-                    Notification.show("User updated")
-                }
-
-                dialog.close()
-                refreshGrid()
-            } catch (exception: Exception) {
-                errorText.text = exception.message ?: "Operation failed"
+            val usernameField = textField("Username") {
+                setWidthFull()
+                value = user?.username ?: ""
             }
-        }
-        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+            val emailField = emailField("Email") {
+                setWidthFull()
+                value = user?.email ?: ""
 
-        val cancelButton = Button("Cancel") {
-            dialog.close()
+                addValueChangeListener {
+                    val emailRegex = Regex("^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$")
+                    isInvalid = it.value.isNotBlank() && !emailRegex.matches(it.value)
+                    errorMessage = "Email is invalid (e.g. user@example.com)"
+                }
+            }
+            val passwordField = passwordField(
+                if (isCreate) "Password" else "New password (optional)"
+            ) {
+                setWidthFull()
+            }
+            val roleCombo = comboBox<Role>("Role") {
+                setItems(Role.entries.toList())
+                value = user?.role ?: Role.USER
+                setWidthFull()
+            }
+            errorParagraph = p {
+                style.set("color", "var(--lumo-error-text-color)")
+            }
+
+            dialog.footer.add(
+                Button("Cancel").apply {
+                    onLeftClick { dialog.close() }
+                },
+                Button(if (isCreate) "Create" else "Save").apply {
+                    addThemeVariants(ButtonVariant.LUMO_PRIMARY)  // тепер Button.addThemeVariants ✓
+                    onLeftClick {
+                        try {
+                            val selectedRole = roleCombo.value
+                                ?: throw IllegalArgumentException("Role is required")
+
+                            if (isCreate) {
+                                userService.createUser(
+                                    username = usernameField.value,
+                                    email = emailField.value,
+                                    rawPassword = passwordField.value,
+                                    role = selectedRole
+                                )
+                                Notification.show("User created")
+                            } else {
+                                val userId = user?.id
+                                    ?: throw IllegalArgumentException("User id is missing")
+                                userService.updateUser(
+                                    id = userId,
+                                    username = usernameField.value,
+                                    email = emailField.value,
+                                    rawPassword = passwordField.value,
+                                    role = selectedRole
+                                )
+                                Notification.show("User updated")
+                            }
+                            dialog.close()
+                            refreshGrid()
+                        } catch (e: Exception) {
+                            errorParagraph.text = e.message ?: "Operation failed"
+                        }
+                    }
+                }
+            )
         }
 
         dialog.add(form)
-        dialog.footer.add(cancelButton, saveButton)
         dialog.open()
     }
 
     private fun openDeleteDialog(user: AppUser) {
-        val dialog = ConfirmDialog()
-        dialog.setHeader("Delete user")
-        dialog.setText("Are you sure you want to delete user '${user.username}'?")
-        dialog.setCancelable(true)
-        dialog.setConfirmText("Delete")
-        dialog.setConfirmButtonTheme("error primary")
-
-        dialog.addConfirmListener {
-            try {
-                val userId = user.id
-                    ?: throw IllegalArgumentException("User id is missing")
-
-                userService.deleteUser(userId)
-
-                Notification.show("User deleted")
-                refreshGrid()
-            } catch (exception: Exception) {
-                Notification.show(exception.message ?: "Delete failed")
+        ConfirmDialog().apply {
+            setHeader("Delete user")
+            setText("Are you sure you want to delete user '${user.username}'?")
+            setCancelable(true)
+            setConfirmText("Delete")
+            setConfirmButtonTheme("error primary")
+            addConfirmListener {
+                try {
+                    val userId = user.id
+                        ?: throw IllegalArgumentException("User id is missing")
+                    userService.deleteUser(userId)
+                    Notification.show("User deleted")
+                    refreshGrid()
+                } catch (e: Exception) {
+                    Notification.show(e.message ?: "Delete failed")
+                }
             }
+            open()
         }
-
-        dialog.open()
     }
 
     private fun refreshGrid() {
         val sortProperty = sortOptions[sortByCombo.value] ?: "username"
-
         val searchType = when (searchTypeCombo.value) {
             "Email" -> UserSearchType.EMAIL
             else -> UserSearchType.USERNAME
@@ -390,7 +349,6 @@ class DashboardView(
 
         if (page.totalPages > 0 && currentPage >= page.totalPages) {
             currentPage = page.totalPages - 1
-
             page = userService.findUsers(
                 query = searchField.value ?: "",
                 searchType = searchType,
@@ -407,17 +365,14 @@ class DashboardView(
         editButton.isEnabled = false
         deleteButton.isEnabled = false
 
-        val totalPages = page.totalPages
-        val totalElements = page.totalElements
-
-        if (totalPages == 0) {
+        pageInfo.text = if (page.totalPages == 0) {
             currentPage = 0
-            pageInfo.text = "No users found"
+            "No users found"
         } else {
-            pageInfo.text = "Page ${currentPage + 1} of $totalPages, total users: $totalElements"
+            "Page ${currentPage + 1} of ${page.totalPages}, total users: ${page.totalElements}"
         }
 
         previousButton.isEnabled = currentPage > 0
-        nextButton.isEnabled = currentPage + 1 < totalPages
+        nextButton.isEnabled = currentPage + 1 < page.totalPages
     }
 }

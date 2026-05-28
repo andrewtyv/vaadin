@@ -1,6 +1,6 @@
 package me.andrew.vaadin_users.ui
 
-import com.vaadin.flow.component.html.H1
+import com.github.mvysny.karibudsl.v10.h1
 import com.vaadin.flow.component.login.LoginForm
 import com.vaadin.flow.component.orderedlayout.FlexComponent
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
@@ -11,6 +11,7 @@ import com.vaadin.flow.router.Route
 import com.vaadin.flow.server.auth.AnonymousAllowed
 
 @Route("login")
+@PageTitle("Login")
 @AnonymousAllowed
 class LoginView : VerticalLayout(), BeforeEnterObserver {
 
@@ -21,12 +22,10 @@ class LoginView : VerticalLayout(), BeforeEnterObserver {
         justifyContentMode = FlexComponent.JustifyContentMode.CENTER
         alignItems = FlexComponent.Alignment.CENTER
 
-        loginForm.action = "login"
+        h1("Vaadin Users")
 
-        add(
-            H1("Vaadin Users"),
-            loginForm
-        )
+        loginForm.action = "login"
+        add(loginForm)
     }
 
     override fun beforeEnter(event: BeforeEnterEvent) {

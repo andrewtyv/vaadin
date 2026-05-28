@@ -177,8 +177,9 @@ class UserService(
             throw IllegalArgumentException("Email is required")
         }
 
-        if (!email.contains("@")) {
-            throw IllegalArgumentException("Email is invalid")
+        val emailRegex = Regex("^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$")
+        if (!emailRegex.matches(email)) {
+            throw IllegalArgumentException("Email is invalid (e.g. user@example.com)")
         }
     }
 
