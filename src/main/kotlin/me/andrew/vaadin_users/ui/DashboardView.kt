@@ -36,6 +36,7 @@ import org.springframework.data.domain.Sort
 import org.springframework.security.core.context.SecurityContextHolder
 import com.vaadin.flow.component.button.Button
 
+
 @Route("")
 @PageTitle("Dashboard")
 @PermitAll
@@ -51,11 +52,11 @@ class DashboardView(
     private lateinit var sortByCombo: ComboBox<String>
     private lateinit var pageInfo: Paragraph
 
-    private lateinit var createButton: com.vaadin.flow.component.button.Button
-    private lateinit var editButton: com.vaadin.flow.component.button.Button
-    private lateinit var deleteButton: com.vaadin.flow.component.button.Button
-    private lateinit var previousButton: com.vaadin.flow.component.button.Button
-    private lateinit var nextButton: com.vaadin.flow.component.button.Button
+    private lateinit var createButton: Button
+    private lateinit var editButton: Button
+    private lateinit var deleteButton: Button
+    private lateinit var previousButton: Button
+    private lateinit var nextButton: Button
 
     private var currentPage = 0
     private var pageSize = 25
@@ -176,9 +177,9 @@ class DashboardView(
                 }
             }
         } else {
-            createButton = com.vaadin.flow.component.button.Button()
-            editButton = com.vaadin.flow.component.button.Button()
-            deleteButton = com.vaadin.flow.component.button.Button()
+            createButton = Button()
+            editButton = Button()
+            deleteButton = Button()
         }
 
 
@@ -269,7 +270,7 @@ class DashboardView(
                     onLeftClick { dialog.close() }
                 },
                 Button(if (isCreate) "Create" else "Save").apply {
-                    addThemeVariants(ButtonVariant.LUMO_PRIMARY)  // тепер Button.addThemeVariants ✓
+                    addThemeVariants(ButtonVariant.LUMO_PRIMARY)
                     onLeftClick {
                         try {
                             val selectedRole = roleCombo.value
