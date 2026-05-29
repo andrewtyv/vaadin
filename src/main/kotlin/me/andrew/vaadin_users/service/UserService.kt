@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.security.access.AccessDeniedException
 
 enum class UserSearchType {
     USERNAME,
@@ -78,6 +79,9 @@ class UserService(
         rawPassword: String,
         role: Role
     ): AppUser {
+        requireAdmin(); // very bad design decision to make unit tests work
+
+
         val cleanUsername = username.trim()
         val cleanEmail = email.trim().lowercase()
         val cleanPassword = rawPassword.trim()
@@ -116,6 +120,8 @@ class UserService(
         rawPassword: String?,
         role: Role
     ): AppUser {
+        requireAdmin(); // very bad design decision to make unit tests work
+
         val user = appUserRepository.findById(id)
             .orElseThrow { IllegalArgumentException("User not found") }
 
@@ -150,6 +156,7 @@ class UserService(
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     fun deleteUser(id: Long) {
+        requireAdmin(); // very bad design decision to make unit tests work
         val user = appUserRepository.findById(id)
             .orElseThrow { IllegalArgumentException("User not found") }
 
@@ -186,5 +193,16 @@ class UserService(
     private fun encodePassword(rawPassword: String): String {
         return passwordEncoder.encode(rawPassword)
             ?: throw IllegalStateException("Password encoder returned null")
+    }
+
+    private fun requireAdmin() {
+        val authentication = SecurityContextHolder.getContext().authentication
+
+        val isAdmin = authentication?.authorities
+            ?.any { it.authority == "ROLE_ADMIN" } == true
+
+        if (!isAdmin) {
+            throw AccessDeniedException("Admin access required")
+        }
     }
 }

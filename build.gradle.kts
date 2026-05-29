@@ -40,6 +40,9 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+	testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+
 }
 
 dependencyManagement {
